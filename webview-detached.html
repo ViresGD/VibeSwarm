@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>AI Browser</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { height:100vh; display:flex; flex-direction:column; background:#0d1117; overflow:hidden; }
+    .nav-bar {
+      display:flex; align-items:center; gap:6px;
+      padding:6px 10px; background:#0a0c10;
+      border-bottom:1px solid #30363d; flex-shrink:0;
+    }
+    .nav-bar button {
+      background:#21262d; border:none; color:white;
+      padding:5px 12px; border-radius:16px; cursor:pointer; font-size:0.78rem;
+    }
+    .nav-bar button.active { background:#3b82f6; }
+    .pin-btn {
+      margin-left:auto; background:#2c6e2c !important;
+      font-size:0.78rem;
+    }
+    webview { flex:1; width:100%; }
+  </style>
+</head>
+<body>
+<div class="nav-bar" id="navBar">
+  <button data-url="https://claude.ai/">Claude</button>
+  <button data-url="https://chatgpt.com/">ChatGPT</button>
+  <button data-url="https://gemini.google.com/">Gemini</button>
+  <button data-url="https://chat.deepseek.com/">DeepSeek</button>
+  <button data-url="https://grok.com/">Grok</button>
+  <button data-url="https://www.kimi.com/">Kimi</button>
+  <button data-url="https://agent.minimax.io/">MiniMax</button>
+  <button data-url="https://chat.mistral.ai/">Mistral</button>
+  <div style="margin-left:auto; display:flex; gap:6px;">
+    <button id="settingsDetachBtn" class="pin-btn" style="background:#30363d !important;" title="Settings">⚙️</button>
+    <button id="reattachBtn" class="pin-btn">📌 Reattach</button>
+  </div>
+</div>
+<webview id="wv" allowpopups partition="persist:ai"></webview>
+<script>
+  const { ipcRenderer } = require('electron');
+  const wv = document.getElementById('wv');
+  const navBar = document.getElementById('navBar');
+
+  // Receive initial URL from main process
+  ipcRenderer.on('detach-init', (e, { url }) => {
+    wv.src = url;
+    updateActive(url);
+  });
+
+  function updateActive(url) {
+    navBar.querySelectorAll('button[data-url]').forEach(b => {
+      b.classList.toggle('active', url.startsWith(b.getAttribute('data-url')));
+    });
+  }
+
+  navBar.querySelectorAll('button[data-url]').forEach(b => {
+    b.onclick = () => { wv.src = b.getAttribute('data-url'); updateActive(wv.src); };
+  });
+
+  wv.addEventListener('did-navigate', e => updateActive(e.url));
+  wv.addEventListener('did-navigate-in-page', e => updateActive(e.url));
+
+  document.getElementById('settingsDetachBtn').onclick = () => {
+    ipcRenderer.send('open-main-settings');
+  };
+
+  document.getElementById('reattachBtn').onclick = () => {
+    ipcRenderer.send('reattach-webview');
+  };
+  
+</script>
+</body>
+</html>

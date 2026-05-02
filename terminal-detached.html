@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Terminal</title>
+  <link rel="stylesheet" href="node_modules/xterm/css/xterm.css">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { height:100vh; display:flex; flex-direction:column; background:#0d0f13; overflow:hidden; }
+    .term-bar {
+      display:flex; align-items:center; gap:8px;
+      padding:4px 10px; background:#161b22;
+      border-bottom:1px solid #30363d; flex-shrink:0;
+    }
+    .term-title { font-size:0.75rem; font-weight:600; color:#58a6ff; font-family:system-ui; }
+    .term-btn {
+      background:#21262d; border:none; color:#8b949e;
+      padding:3px 8px; border-radius:4px; cursor:pointer; font-size:0.7rem;
+    }
+    .pin-btn { background:#2c6e2c !important; color:white !important; margin-left:auto; }
+    #termHost { flex:1; overflow:hidden; padding:4px; }
+  </style>
+</head>
+<body>
+<div class="term-bar">
+  <span class="term-title">⚡ Terminal</span>
+  <button id="clearBtn" class="term-btn">✕ Clear</button>
+  <button id="newBtn" class="term-btn">＋ New</button>
+  <button id="insertBtn" class="term-btn">⚡ Insert</button>
+  <button id="reattachBtn" class="term-btn pin-btn">📌 Reattach</button>
+</div>
+<div id="termHost"></div>
+
+<!-- Insert popup (same as main window) -->
+<div id="insertPopup" style="
+  display:none; position:fixed; z-index:2000;
+  background:#161b22; border:1px solid #30363d;
+  border-radius:12px; padding:16px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);
+  top:50%; left:50%; transform:translate(-50%,-50%);
+  max-width:90vw; max-height:85vh;
+">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <span style="font-size:0.85rem; font-weight:600; color:#c084fc;">⚡ Insert Command</span>
+    <span id="insertClose" style="cursor:pointer; color:#8b949e; font-size:1.1rem;">✕</span>
+  </div>
+  <div id="insertContent"></div>
+</div>
+
+<script>
+  const { ipcRenderer } = require('electron');
+  const path = require('path');
+  const os = require('os');
+
+  let term, fitAddon, ptyId;
+
+  ipcRenderer.on('detach-term-init', async (e, { ptyId: id, cwd }) => {
+    ptyId = id;
+    const { Terminal } = require('xterm');
+    const { FitAddon } = require('xterm-addon-fit');
+    const host = document.getElementById('termHost');
+
+    term = new Terminal({
+      theme: { background:'#0d0f13', foreground:'#e6edf3', cursor:'#58a6ff' },
+      fontFamily: "'Cascadia Code','Consolas',monospace",
+      fontSize: 12, cursorBlink: true, allowProposedApi: true
+    });
+    fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(host);
+
+    await new Promise(r => setTimeout(r, 150));
+    fitAddon.fit();
+
+    // Resize PTY to match new window size — fixes gibberish
+    await ipcRenderer.invoke('pty-resize', ptyId, term.cols, term.rows);
+
+    term.onData(data => ipcRenderer.invoke('pty-write', ptyId, data));
+    term.onResize(({ cols, rows }) => ipcRenderer.invoke('pty-resize', ptyId, cols, rows));
+
+    ipcRenderer.on('pty-data', (ev, { id, data }) => { if (id === ptyId) term.write(data); });
+    ipcRenderer.on('pty-exit', (ev, { id }) => {
+      if (id === ptyId) term.write('\r\n\x1b[33m[Process exited]\x1b[0m\r\n');
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    if (fitAddon) { fitAddon.fit(); if (ptyId && term) ipcRenderer.invoke('pty-resize', ptyId, term.cols, term.rows); }
+  });
+
+  document.getElementById('clearBtn').onclick = () => { if (term) term.clear(); };
+  document.getElementById('newBtn').onclick = async () => {
+    if (ptyId) await ipcRenderer.invoke('pty-kill', ptyId);
+    ptyId = null;
+    const result = await ipcRenderer.invoke('pty-create', os.homedir(), term?.cols||80, term?.rows||24);
+    ptyId = result.id;
+    ipcRenderer.send('term-new-pty', ptyId);
+  };
+  document.getElementById('reattachBtn').onclick = () => ipcRenderer.send('reattach-terminal');
+
+  // Insert popup (same logic as main window)
+  const insertPopup = document.getElementById('insertPopup');
+  const insertContent = document.getElementById('insertContent');
+  document.getElementById('insertClose').onclick = () => insertPopup.style.display = 'none';
+  document.addEventListener('click', e => {
+    if (insertPopup.style.display !== 'none' && !insertPopup.contains(e.target) && e.target !== document.getElementById('insertBtn'))
+      insertPopup.style.display = 'none';
+  });
+  document.getElementById('insertBtn').onclick = async () => {
+    if (insertPopup.style.display !== 'none') { insertPopup.style.display = 'none'; return; }
+    let snippets = [];
+    try {
+      const raw = await ipcRenderer.invoke('read-file', path.join(__dirname, 'insert.json'));
+      snippets = JSON.parse(raw).snippets || [];
+    } catch { insertContent.innerHTML = '<div style="color:#f85149;font-size:0.75rem;">❌ Could not load insert.json</div>'; insertPopup.style.display = 'block'; return; }
+    const allItems = [];
+    for (const g of snippets) {
+      allItems.push({ type:'header', text:g.header });
+      for (const c of g.commands) allItems.push({ type:'cmd', text:c });
+      allItems.push({ type:'divider' });
+    }
+    if (allItems.length && allItems[allItems.length-1].type === 'divider') allItems.pop();
+    const COL_SIZE = 15;
+    const columns = [];
+    for (let i = 0; i < allItems.length; i += COL_SIZE) columns.push(allItems.slice(i, i+COL_SIZE));
+    insertContent.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex; gap:16px; align-items:flex-start;';
+    for (let c = 0; c < columns.length; c++) {
+      const col = document.createElement('div');
+      col.style.cssText = 'display:flex; flex-direction:column; min-width:200px;';
+      if (c > 0) { const vd = document.createElement('div'); vd.style.cssText = 'width:1px;background:#30363d;align-self:stretch;margin-right:16px;flex-shrink:0;'; wrap.appendChild(vd); }
+      for (const item of columns[c]) {
+        if (item.type === 'header') { const h = document.createElement('div'); h.style.cssText = 'font-size:0.7rem;font-weight:700;color:#58a6ff;margin:8px 0 4px;text-transform:uppercase;'; h.textContent = item.text; col.appendChild(h); }
+        else if (item.type === 'divider') { const hr = document.createElement('div'); hr.style.cssText = 'border-top:1px solid #21262d;margin:6px 0;'; col.appendChild(hr); }
+        else { const d = document.createElement('div'); d.style.cssText = 'font-size:0.78rem;padding:5px 10px;border-radius:6px;cursor:pointer;color:#e6edf3;font-family:monospace;'; d.textContent = item.text; d.onmouseenter = () => d.style.background='#21262d'; d.onmouseleave = () => d.style.background='transparent'; d.onclick = async () => { insertPopup.style.display='none'; if(ptyId) await ipcRenderer.invoke('pty-write', ptyId, item.text); }; col.appendChild(d); }
+      }
+      wrap.appendChild(col);
+    }
+    insertContent.appendChild(wrap);
+    insertPopup.style.display = 'block';
+  };
+</script>
+</body>
+</html>

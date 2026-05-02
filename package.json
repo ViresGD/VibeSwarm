@@ -1,0 +1,64 @@
+{
+  "name": "Vibe_Swarm",
+  "version": "4.2.2",
+  "description": "Vibe Swarm - AI Swarm for Vibe-Coding",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "electron-rebuild -f -w @lydell/node-pty",
+    "dist": "electron-builder --win --publish never"
+  },
+  "author": "VITAE Online",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^41.3.0",
+    "electron-builder": "^24.6.4",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.vibeswarm.desktop",
+    "productName": "Vibe Swarm",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache",
+      "!dist"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "icon.ico"
+    }
+  },
+  "dependencies": {
+    "@lydell/node-pty": "^1.1.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/view": "^6.26.0",
+    "@codemirror/commands": "^6.3.3",
+    "@codemirror/language": "^6.10.1",
+    "@codemirror/search": "^6.5.6",
+    "@codemirror/autocomplete": "^6.16.0",
+    "@codemirror/theme-one-dark": "^6.1.2",
+
+    "@codemirror/lang-javascript": "^6.2.2",
+    "@codemirror/lang-python": "^6.1.6",
+    "@codemirror/lang-html": "^6.4.9",
+    "@codemirror/lang-css": "^6.2.1",
+    "@codemirror/lang-json": "^6.0.1",
+    "@codemirror/lang-markdown": "^6.2.5",
+    "@codemirror/lang-xml": "^6.1.0",
+    "@codemirror/lang-sql": "^6.7.1"
+  }
+}

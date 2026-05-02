@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Vibe Swarm</title>
+  <link rel="stylesheet" href="node_modules/xterm/css/xterm.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      height: 100vh;
+      display: flex;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      overflow: hidden;
+    }
+
+    .left-panel {
+      width: 50%;
+      min-width: 300px;
+      max-width: 70%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #30363d;
+      padding: 16px;
+      overflow-y: auto;
+      background: #0d1117;
+    }
+
+    .divider {
+      width: 5px;
+      background: #30363d;
+      cursor: col-resize;
+      transition: background 0.1s;
+    }
+    .divider:hover { background: #3b82f6; }
+
+    .right-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #0d1117;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .ai-nav {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      background: #0a0c10;
+      border-bottom: 1px solid #30363d;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .ai-nav button {
+      background: #21262d;
+      border: none;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: 0.1s;
+    }
+    .ai-nav button.active { background: #3b82f6; }
+    .ai-nav button.settings-btn {
+      margin-left: auto;
+      background: #30363d;
+    }
+
+    webview {
+      flex: 1;
+      width: 100%;
+    }
+
+    .drop-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 3px dashed #3b82f6;
+      pointer-events: none;
+    }
+    .drop-overlay.active { display: flex; pointer-events: all; }
+    .drop-overlay .drop-icon { font-size: 3rem; }
+    .drop-overlay .drop-label {
+      font-size: 1.1rem;
+      color: #93c5fd;
+      text-align: center;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    h2 {
+      font-size: 1.2rem;
+      background: linear-gradient(135deg, #c084fc, #818cf8);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    button, .ctx-item {
+      background: #21262d;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+    button.primary { background: #3b82f6; }
+    button.primary:hover { background: #2563eb; }
+    button.danger { background: #b45353; }
+    button.open { background: #2c6e2c; }
+    button.run-cmd { background: #2c6e6e; }
+    button.disk { background: #5a3e8c; }
+    button.restore { background: #e67e22; }
+
+    .folder-info {
+      font-size: 0.75rem;
+      background: #161b22;
+      padding: 6px 10px;
+      border-radius: 16px;
+      margin-bottom: 12px;
+    }
+    .tree-container {
+      background: #0a0c10;
+      border-radius: 16px;
+      border: 1px solid #21262d;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.7rem;
+      margin-bottom: 16px;
+    }
+    .tree-item-file {
+      margin-left: 24px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .tree-item-file:hover { background: #1f2937; }
+    .tree-item-folder {
+      font-weight: bold;
+      color: #8b949e;
+      margin-left: 16px;
+    }
+    .tree-select-all {
+      margin: 8px 0;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* ========== MULTI‑TAB EDITOR ========== */
+    .editor-area {
+      margin-top: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .tabs-container {
+      display: flex;
+      gap: 2px;
+      background: #0a0c10;
+      border-bottom: 1px solid #30363d;
+      padding: 0 4px;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+    }
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #161b22;
+      padding: 6px 12px;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      font-size: 0.75rem;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .tab.active {
+      background: #0d1117;
+      border-bottom: 2px solid #3b82f6;
+    }
+    .tab .tab-filename {
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tab .tab-close {
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #8b949e;
+      margin-left: 4px;
+    }
+    .tab .tab-close:hover { color: #f85149; }
+    .tab.dirty .tab-filename::before {
+      content: "● ";
+      color: #f0e68c;
+      font-size: 0.7rem;
+    }
+
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 8px 0 4px;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .editor-header-right {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    #cmHost {
+      flex: 1;
+      min-height: 300px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #30363d;
+    }
+
+    .status {
+      font-size: 0.7rem;
+      color: #8b949e;
+      margin-top: 8px;
+      text-align: center;
+    }
+    .token-warning {
+      background: #2d1f1f;
+      border-left: 3px solid #f97316;
+      padding: 6px 10px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      margin: 8px 0;
+    }
+
+    #diskFileInput { display: none; }
+
+    .right-top {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 60%;
+      min-height: 80px;
+      overflow: hidden;
+    }
+    .v-divider {
+      height: 6px;
+      background: #1a1f26;
+      cursor: row-resize;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-top: 1px solid #30363d;
+      border-bottom: 1px solid #30363d;
+    }
+    .v-divider:hover, .v-divider.dragging { background: #3b82f6; }
+    .v-divider-grip {
+      width: 36px;
+      height: 3px;
+      background: #30363d;
+      border-radius: 2px;
+    }
+
+    .right-bottom {
+      display: flex;
+      flex-direction: column;
+      flex: 0 0 220px;
+      min-height: 60px;
+      background: #0d0f13;
+      overflow: hidden;
+    }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+    }
+    .terminal-title { font-size: 0.75rem; font-weight: 600; color: #58a6ff; }
+    .terminal-cwd {
+      font-size: 0.7rem;
+      color: #8b949e;
+      font-family: monospace;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .term-btn {
+      background: #21262d;
+      border: none;
+      color: #8b949e;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.7rem;
+    }
+    #terminalHost { flex: 1; overflow: hidden; padding: 4px; }
+    .xterm { height: 100%; }
+
+    /* Modal styles */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1001;
+    }
+    .modal {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 24px;
+      min-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .modal h3 { font-size: 1.1rem; color: #c084fc; margin: 0; }
+    .modal input, .modal textarea {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #e6edf3;
+      font-size: 0.85rem;
+      width: 100%;
+    }
+    .modal-row { display: flex; flex-direction: column; gap: 4px; }
+    .modal-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div class="left-panel" id="leftPanel">
+  <div class="header"><h2>📁 Project Editor</h2><button id="refreshBtn">⟳ Refresh</button></div>
+  <div id="folderInfo" class="folder-info">📁 No folder selected</div>
+  <button id="attachFolderBtn" class="primary">📂 Select Project Folder</button>
+  <div id="folderTreeArea" style="margin-top:12px;">
+    <div class="tree-select-all">
+	  <button id="selectAllFiles">✅ Select All</button><button id="selectNoneFiles">❌ None</button>
+      <button id="generateContextBtn" class="primary">📄 Generate Context File</button>
+	  <span style="color:#30363d; font-size:1.2rem; align-self:center;">|</span>
+	  <button id="diskOpenBtn" class="disk" title="Open any file from disk">📁 Open Any File</button>
+    </div>
+    <div id="fileTree" class="tree-container"></div>
+    <div id="tokenEstimate" class="token-warning" style="display: none;"></div>
+  </div>
+
+  <!-- Multi‑tab editor area -->
+  <div id="editorArea" class="editor-area" style="display: none;">
+    <div class="tabs-container" id="tabsContainer"></div>
+    <div class="editor-header">
+      <div class="editor-header-right">
+        <button id="newFileBtn" class="run-cmd">➕ New File</button>
+        <button id="openBtn" class="open">🔗 System</button>
+        <button id="runCmdBtn" class="run-cmd">▶ Run</button>
+        <button id="saveBtn" class="primary">💾 Save</button>
+        <button id="deleteBtn" class="danger">🗑️</button>
+        <button id="restoreBtn" class="restore">🔄 Restore</button>
+      </div>
+    </div>
+    <div id="cmHost"></div>
+  </div>
+  <div id="statusMsg" class="status"></div>
+</div>
+
+<div class="divider" id="divider"></div>
+
+<div class="right-panel" id="rightPanel">
+  <div class="drop-overlay" id="dropOverlay">
+    <div class="drop-icon">📎</div><div class="drop-label">Drop files to send to AI</div>
+  </div>
+  <div class="right-top" id="rightTop">
+    <div class="ai-nav" id="aiNav">
+      <button data-url="https://claude.ai/" class="active">Claude</button>
+      <button data-url="https://chatgpt.com/">ChatGPT</button>
+      <button data-url="https://gemini.google.com/">Gemini</button>
+      <button data-url="https://chat.deepseek.com/">DeepSeek</button>
+      <button data-url="https://grok.com/">Grok</button>
+      <button data-url="https://www.kimi.com/">Kimi</button>
+      <button data-url="https://agent.minimax.io/">MiniMax</button>
+      <button data-url="https://chat.mistral.ai/">Mistral</button>
+      <div style="margin-left:auto; display:flex; gap:6px;">
+        <button id="settingsBtn" class="settings-btn" style="margin-left:0;" title="Settings">⚙️</button>
+        <button id="detachWebviewBtn" class="settings-btn" style="margin-left:0;" title="Detach browser to own window">📌</button>
+      </div>
+    </div>
+    <webview id="aiWebview" src="https://claude.ai/" allowpopups partition="persist:ai"></webview>
+  </div>
+  <div class="v-divider" id="vDivider"><div class="v-divider-grip"></div></div>
+  <div class="right-bottom" id="rightBottom">
+    <div class="terminal-bar">
+      <span class="terminal-title">⚡ Terminal</span>
+      <span id="terminalCwd" class="terminal-cwd">~</span>
+      <button id="termClearBtn" class="term-btn">✕ Clear</button>
+      <button id="termNewBtn" class="term-btn">＋ New</button>
+	  <button id="termInsertBtn" class="term-btn" style="background:#2c6e2c;">⚡ Insert</button>
+	  <button id="detachTermBtn" class="term-btn" style="background:#5a3e8c;">📌</button>
+    </div>
+    <div id="terminalHost"></div>
+  </div>
+</div>
+
+<input type="file" id="diskFileInput" accept="*/*">
+
+<!-- New File Modal -->
+<div id="newFileOverlay" class="modal-overlay">
+  <div class="modal">
+    <h3>➕ New File</h3>
+    <div id="newFileFolder" style="font-size:0.75rem; color:#8b949e;"></div>
+    <input id="newFileNameInput" type="text" placeholder="filename.js">
+    <div class="modal-buttons">
+      <button id="newFileCancelBtn">Cancel</button><button id="newFileCreateBtn" class="primary">Create</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Settings Modal (Custom AI Endpoint) -->
+<div id="settingsOverlay" class="modal-overlay">
+  <div class="modal" style="min-width: 450px;">
+    <h3>⚙️ Custom AI Settings</h3>
+    <div class="modal-row">
+      <label>Custom Webview URL (e.g. http://localhost:3000)</label>
+      <input id="customAiUrl" type="text" placeholder="Leave empty to disable custom AI">
+    </div>
+    <div class="modal-row">
+      <label><input type="checkbox" id="enableApiKey"> Enable API key (for injection)</label>
+      <input id="apiKeyInput" type="password" placeholder="API Key" disabled>
+    </div>
+    <div class="modal-row">
+      <label>Model name (optional, for button label)</label>
+      <input id="modelName" type="text" placeholder="e.g., Llama 3, GPT-4o, Ollama">
+    </div>
+    <div class="modal-buttons" style="justify-content: space-between;">
+      <button id="removeCustomAiBtn" style="background:#b45353;">🗑️ Remove Custom AI</button>
+      <div style="display: flex; gap: 8px;">
+        <button id="settingsCancelBtn">Cancel</button>
+        <button id="settingsSaveBtn" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Context menus -->
+<div id="treeContextMenu" style="display:none; position:fixed; z-index:1000; background:#161b22; border:1px solid #30363d; border-radius:10px; padding:6px; min-width:140px;">
+  <div id="ctxRename" class="ctx-item">✏️ Rename</div><div id="ctxDelete" class="ctx-item">🗑️ Delete</div>
+  <div id="ctxSendToAI" class="ctx-item">🤖 Send to AI</div>
+</div>
+<div id="folderContextMenu" style="display:none; position:fixed; z-index:1000; background:#161b22; border:1px solid #30363d; border-radius:10px; padding:6px; min-width:150px;">
+  <div id="ctxFolderRename" class="ctx-item">✏️ Rename Folder</div><div id="ctxFolderDelete" class="ctx-item">🗑️ Delete Folder</div>
+</div>
+
+<style>
+  .ctx-item:hover { background: #21262d; }
+  .tree-item-file[draggable="true"] { cursor: grab; }
+  button.run-cmd { background: #2c6e6e; }
+  button.run-cmd:hover { background: #1e5a5a; }
+  .tab .tab-filename { color: #e6edf3; }
+</style>
+
+<!-- Insert Snippets Popup -->
+<div id="insertPopup" style="
+  display:none; position:fixed; z-index:2000;
+  background:#161b22; border:1px solid #30363d;
+  border-radius:12px; padding:16px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);
+  top:50%; left:50%; transform:translate(-50%,-50%);
+  max-width:90vw; max-height:85vh;
+">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <span style="font-size:0.85rem; font-weight:600; color:#c084fc;">⚡ Insert Command</span>
+    <span id="insertPopupClose" style="cursor:pointer; color:#8b949e; font-size:1.1rem;">✕</span>
+  </div>
+  <div id="insertPopupContent"></div>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>

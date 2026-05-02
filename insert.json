@@ -1,0 +1,46 @@
+{
+  "snippets": [
+    {
+      "header": "Python",
+      "commands": [
+        "pip install ",
+        "pip list",
+        "pip freeze > requirements.txt",
+        "python -m venv venv",
+        "pip install -r requirements.txt",
+        "print(\"\")"
+      ]
+    },
+    {
+      "header": "Node / NPM",
+      "commands": [
+        "npm install ",
+        "npm run dev",
+        "npm run build",
+        "npm init -y",
+        "npx create-react-app ."
+      ]
+    },
+    {
+      "header": "Git",
+      "commands": [
+        "git status",
+        "git add .",
+        "git commit -m \"\"",
+        "git push",
+        "git pull",
+        "git log --oneline"
+      ]
+    },
+    {
+      "header": "Files",
+      "commands": [
+        "ls",
+        "pwd",
+        "mkdir ",
+        "rm -rf ",
+        "cp -r "
+      ]
+    }
+  ]
+}
