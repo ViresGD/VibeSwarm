@@ -3,6 +3,7 @@
 A multi-AI coding workspace for developers who don't want to be locked into one AI tool. Use free tier AI's and transfer your content between them.
 > Stop juggling tabs. Your editor, terminal and every major AI assistant — all in one window.
 
+
 <img width="1911" height="1025" alt="screenshot" src="https://github.com/user-attachments/assets/d0aac355-214f-493a-b806-f10afbb0d631" />
 
 
