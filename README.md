@@ -21,7 +21,7 @@ A multi-AI coding workspace for developers who don't want to be locked into one 
 
 👉 [Download the latest installer](https://github.com/ViresGD/VibeSwarm/releases/latest)
 
-Windows, Mac and Linux supported.
+Windows supported.
 
 ## Run from source
 
