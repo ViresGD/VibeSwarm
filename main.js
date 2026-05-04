@@ -7,6 +7,15 @@ const os = require('os');
 let mainWindow;
 const ptyProcesses = {};
 
+// Settings persistence
+const settingsPath = path.join(app.getPath('userData'), 'vibe-settings.json');
+async function loadSettings() {
+  try { return JSON.parse(await fs.readFile(settingsPath, 'utf8')); } catch { return {}; }
+}
+async function saveSettings(data) { await fs.writeFile(settingsPath, JSON.stringify(data), 'utf8'); }
+ipcMain.handle('load-settings', async () => loadSettings());
+ipcMain.handle('save-settings', async (e, data) => { await saveSettings(data); return true; });
+
 function createWindow() {
   let iconPath;
   if (process.platform === 'win32') {
@@ -306,11 +315,13 @@ ipcMain.handle('detach-webview', async (event, url) => {
   webviewDetachWindow = new BrowserWindow({
     ...bounds,
     title: '🌐 AI Browser',
+	alwaysOnTop: true,   // <-- add this
     webPreferences: { nodeIntegration: true, contextIsolation: false, webviewTag: true, partition: 'persist:main' }
   });
   webviewDetachWindow.loadFile('webview-detached.html');
-  webviewDetachWindow.webContents.once('did-finish-load', () => {
-    webviewDetachWindow.webContents.send('detach-init', { url });
+  webviewDetachWindow.webContents.once('did-finish-load', async () => {
+    const settings = await loadSettings();                // load current settings
+    webviewDetachWindow.webContents.send('detach-init', { url, settings }); // send both
   });
   webviewDetachWindow.on('resize', () => { webviewDetachBounds = webviewDetachWindow.getBounds(); });
   webviewDetachWindow.on('move', () => { webviewDetachBounds = webviewDetachWindow.getBounds(); });
@@ -328,6 +339,7 @@ ipcMain.handle('detach-terminal', async (event, ptyId) => {
   terminalDetachWindow = new BrowserWindow({
     ...bounds,
     title: '⚡ Terminal',
+	alwaysOnTop: true,   // <-- add this
     webPreferences: { nodeIntegration: true, contextIsolation: false, partition: 'persist:main' }
   });
   terminalDetachWindow.loadFile('terminal-detached.html');
@@ -379,6 +391,12 @@ function startPreviewServer() {
   });
   previewServer.listen(PREVIEW_PORT);
 }
+
+ipcMain.on('update-detached-settings', async (event, settings) => {
+  if (webviewDetachWindow && !webviewDetachWindow.isDestroyed()) {
+    webviewDetachWindow.webContents.send('apply-settings', settings);
+  }
+});
 
 ipcMain.handle('open-html-preview', async (event, filePath, content) => {
   previewHtmlContent = content;

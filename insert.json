@@ -6,6 +6,8 @@
         "pip install ",
         "pip list",
         "pip freeze > requirements.txt",
+		"pip install --upgrade pip",
+		"python -m pip install --upgrade pip",
         "python -m venv venv",
         "pip install -r requirements.txt",
         "print(\"\")"
@@ -14,7 +16,9 @@
     {
       "header": "Node / NPM",
       "commands": [
+		"nmp start",
         "npm install ",
+		"npm run dist",
         "npm run dev",
         "npm run build",
         "npm init -y",
@@ -35,11 +39,9 @@
     {
       "header": "Files",
       "commands": [
-        "ls",
-        "pwd",
+        "dir",
         "mkdir ",
-        "rm -rf ",
-        "cp -r "
+        "rmdir \"\""
       ]
     }
   ]

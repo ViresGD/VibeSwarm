@@ -33,29 +33,28 @@
   <button data-url="https://www.kimi.com/">Kimi</button>
   <button data-url="https://agent.minimax.io/">MiniMax</button>
   <button data-url="https://chat.mistral.ai/">Mistral</button>
+  <button data-url="https://github.com/">GitHub</button>
+  <span id="customButtonsContainer"></span>
   <div style="margin-left:auto; display:flex; gap:6px;">
     <button id="settingsDetachBtn" class="pin-btn" style="background:#30363d !important;" title="Settings">⚙️</button>
     <button id="reattachBtn" class="pin-btn">📌 Reattach</button>
   </div>
 </div>
 <webview id="wv" allowpopups partition="persist:ai"></webview>
+
 <script>
   const { ipcRenderer } = require('electron');
   const wv = document.getElementById('wv');
   const navBar = document.getElementById('navBar');
 
-  // Receive initial URL from main process
-  ipcRenderer.on('detach-init', (e, { url }) => {
-    wv.src = url;
-    updateActive(url);
-  });
-
+  // Update active state of default nav buttons
   function updateActive(url) {
     navBar.querySelectorAll('button[data-url]').forEach(b => {
       b.classList.toggle('active', url.startsWith(b.getAttribute('data-url')));
     });
   }
 
+  // Wire up default nav buttons
   navBar.querySelectorAll('button[data-url]').forEach(b => {
     b.onclick = () => { wv.src = b.getAttribute('data-url'); updateActive(wv.src); };
   });
@@ -63,14 +62,52 @@
   wv.addEventListener('did-navigate', e => updateActive(e.url));
   wv.addEventListener('did-navigate-in-page', e => updateActive(e.url));
 
+  // Settings button → opens main window settings
   document.getElementById('settingsDetachBtn').onclick = () => {
     ipcRenderer.send('open-main-settings');
   };
 
+  // Reattach button
   document.getElementById('reattachBtn').onclick = () => {
     ipcRenderer.send('reattach-webview');
   };
-  
+
+  // ── Dynamic custom buttons from settings ──
+  function applySettings(settings) {
+    const container = document.getElementById('customButtonsContainer');
+    container.innerHTML = ''; // clear previous
+
+    if (settings.customAiName && settings.customAiUrl) {
+      const btn = document.createElement('button');
+      btn.textContent = settings.customAiName;
+      btn.onclick = () => {
+        wv.src = settings.customAiUrl;
+        updateActive(settings.customAiUrl);
+      };
+      container.appendChild(btn);
+    }
+
+    if (settings.openRouterKey) {
+      const orpacBtn = document.createElement('button');
+      orpacBtn.textContent = 'ORPAC';
+      orpacBtn.style.background = '#6a3ea1';
+      orpacBtn.title = 'OpenRouter Personal Artificial Coder';
+      orpacBtn.onclick = () => { /* future */ };
+      container.appendChild(orpacBtn);
+    }
+  }
+
+  // Receive initial data (url + settings) from main process
+  ipcRenderer.on('detach-init', (e, { url, settings }) => {
+    wv.src = url;
+    updateActive(url);
+    applySettings(settings || {});
+  });
+
+  // Receive settings updates from main window (when user saves)
+  ipcRenderer.on('apply-settings', (e, settings) => {
+    applySettings(settings);
+  });
 </script>
 </body>
 </html>

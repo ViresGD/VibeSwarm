@@ -1,3 +1,11 @@
+# Release Notes - Vibe Swarm v4.2.5
+
+**Release Date:** May 4, 2026
+
+## Overview
+Fixed custom AI addintion in settings and preparing for OpenRouter Agnets by adding OpenRouter API (Funtion still to be added).
+Minor bug fixes.
+
 # Release Notes - Vibe Swarm v4.2.3
 
 **Release Date:** May 3, 2026

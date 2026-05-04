@@ -823,6 +823,18 @@ rightPanel.addEventListener('drop', handleFileDrop);
 const aiWebviewElem = document.getElementById('aiWebview');
 
 
+// Wire up AI nav buttons
+aiNav.querySelectorAll('button[data-url]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    aiWebview.src = btn.getAttribute('data-url');
+    aiNav.querySelectorAll('button[data-url]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+
+
+
 async function injectPromptIntoAI(prompt) {
   await waitForWebviewLoad();
   const currentUrl = aiWebview.getURL();
@@ -1262,109 +1274,106 @@ function updateActiveButton(url) {
 }
 
 
-function addCustomAiButton(settings) {
-  let existing = document.getElementById('customAiBtn');
-  if (existing) existing.remove();
-  
-  const btn = document.createElement('button');
-  btn.id = 'customAiBtn';
-  btn.setAttribute('data-url', settings.customUrl);
-  
-  // Use model name if available, otherwise use shortened URL
-  let displayName = settings.modelName || settings.customUrl.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
-  if (displayName.length > 20) displayName = displayName.slice(0, 18) + '…';
-  btn.textContent = displayName;
-  btn.title = settings.customUrl;
-  
-  btn.addEventListener('click', () => {
-    aiWebview.src = settings.customUrl;
-    updateActiveButton(settings.customUrl);
-  });
-  
-  const settingsBtn = document.getElementById('settingsBtn');
-  aiNav.insertBefore(btn, settingsBtn);
-}
 
 
-function loadSettings() {
-  const saved = localStorage.getItem('vibeswarm_ai_settings');
-  if (saved) {
-    try {
-      const settings = JSON.parse(saved);
-      document.getElementById('customAiUrl').value = settings.customUrl || '';
-      document.getElementById('enableApiKey').checked = settings.enableApiKey || false;
-      document.getElementById('apiKeyInput').disabled = !settings.enableApiKey;
-      document.getElementById('apiKeyInput').value = settings.apiKey || '';
-      document.getElementById('modelName').value = settings.modelName || '';
-      
-      // Add button if custom URL exists
-      if (settings.customUrl) {
-        addCustomAiButton(settings);
-      }
-    } catch(e) {}
+
+
+
+
+
+
+// ── Settings ──────────────────────────────────────────────
+
+async function applySettings(s) {
+  // ── Custom AI button ──
+  let customBtn = document.getElementById('customAiBtn');
+  if (s.customAiName && s.customAiUrl) {
+    if (!customBtn) {
+      customBtn = document.createElement('button');
+      customBtn.id = 'customAiBtn';
+      // Insert before the right-side div (settings/detach buttons)
+      const rightDiv = aiNav.querySelector('div[style*="margin-left:auto"]');
+      aiNav.insertBefore(customBtn, rightDiv);
+      customBtn.addEventListener('click', () => {
+        aiNav.querySelectorAll('button[data-url]').forEach(b => b.classList.remove('active'));
+        customBtn.classList.add('active');
+        aiWebview.src = s.customAiUrl;
+      });
+    }
+    customBtn.setAttribute('data-url', s.customAiUrl);
+    customBtn.textContent = s.customAiName;
+  } else if (customBtn) {
+    customBtn.remove();
+  }
+
+  // ── ORPAC button ──
+  let orpacBtn = document.getElementById('orpacBtn');
+  if (s.openRouterKey) {
+    if (!orpacBtn) {
+      orpacBtn = document.createElement('button');
+      orpacBtn.id = 'orpacBtn';
+      orpacBtn.textContent = 'ORPAC';
+      orpacBtn.style.background = '#6a3ea1';
+      orpacBtn.title = 'OpenRouter Personal Artificial Coder';
+      orpacBtn.addEventListener('click', () => { /* future */ });
+      const rightDiv = aiNav.querySelector('div[style*="margin-left:auto"]');
+      aiNav.insertBefore(orpacBtn, rightDiv);
+    }
+  } else if (orpacBtn) {
+    orpacBtn.remove();
+  }
+
+  // ── Forward settings to detached webview if it’s open ──
+  if (webviewDetached) {
+    ipcRenderer.send('update-detached-settings', s);
   }
 }
 
-function saveSettings() {
-  const customUrl = document.getElementById('customAiUrl').value.trim();
-  const enableApiKey = document.getElementById('enableApiKey').checked;
-  const apiKey = document.getElementById('apiKeyInput').value;
-  const modelName = document.getElementById('modelName').value.trim();
-  
-  const settings = { customUrl, enableApiKey, apiKey, modelName };
-  localStorage.setItem('vibeswarm_ai_settings', JSON.stringify(settings));
-  
-  // Update or remove button
-  if (customUrl) {
-    addCustomAiButton(settings);
-  } else {
-    const btn = document.getElementById('customAiBtn');
-    if (btn) btn.remove();
-  }
-  
-  setStatus('✅ Settings saved');
-}
-
-
-
-const settingsBtn = document.getElementById('settingsBtn');
-const settingsOverlay = document.getElementById('settingsOverlay');
-const settingsCancelBtn = document.getElementById('settingsCancelBtn');
-const settingsSaveBtn = document.getElementById('settingsSaveBtn');
-const enableApiKeyCheckbox = document.getElementById('enableApiKey');
-const apiKeyInput = document.getElementById('apiKeyInput');
-settingsBtn.onclick = () => { loadSettings(); settingsOverlay.style.display = 'flex'; };
-settingsCancelBtn.onclick = () => settingsOverlay.style.display = 'none';
-settingsSaveBtn.onclick = () => { saveSettings(); settingsOverlay.style.display = 'none'; };
-enableApiKeyCheckbox.onchange = () => { apiKeyInput.disabled = !enableApiKeyCheckbox.checked; };
-aiWebview.addEventListener('did-navigate', (e) => updateActiveButton(e.url));
-aiWebview.addEventListener('did-navigate-in-page', (e) => updateActiveButton(e.url));
-aiNav.querySelectorAll('button[data-url]:not(#settingsBtn)').forEach(btn => {
-  btn.addEventListener('click', () => { aiWebview.src = btn.getAttribute('data-url'); updateActiveButton(aiWebview.src); });
+// Load settings on startup
+ipcRenderer.invoke('load-settings').then(s => {
+  applySettings(s);
 });
 
-const removeCustomAiBtn = document.getElementById('removeCustomAiBtn');
-if (removeCustomAiBtn) {
-  removeCustomAiBtn.onclick = () => {
-    // Clear custom AI settings
-    document.getElementById('customAiUrl').value = '';
-    document.getElementById('enableApiKey').checked = false;
-    document.getElementById('apiKeyInput').value = '';
-    document.getElementById('modelName').value = '';
-    document.getElementById('apiKeyInput').disabled = true;
-    
-    // Save empty settings
-    const emptySettings = { customUrl: '', enableApiKey: false, apiKey: '', modelName: '' };
-    localStorage.setItem('vibeswarm_ai_settings', JSON.stringify(emptySettings));
-    
-    // Remove the custom button
-    const btn = document.getElementById('customAiBtn');
-    if (btn) btn.remove();
-    
-    setStatus('✅ Custom AI removed');
-    settingsOverlay.style.display = 'none';
+document.getElementById('settingsBtn').addEventListener('click', async () => {
+  const s = await ipcRenderer.invoke('load-settings');
+  document.getElementById('customAiName').value = s.customAiName || '';
+  document.getElementById('customAiUrl').value = s.customAiUrl || '';
+  document.getElementById('openRouterKey').value = s.openRouterKey || '';
+  document.getElementById('settingsOverlay').style.display = 'flex';
+});
+
+document.getElementById('settingsCancelBtn').addEventListener('click', () => {
+  document.getElementById('settingsOverlay').style.display = 'none';
+});
+
+document.getElementById('settingsSaveBtn').addEventListener('click', async () => {
+  const s = {
+    customAiName: document.getElementById('customAiName').value.trim(),
+    customAiUrl:  document.getElementById('customAiUrl').value.trim(),
+    openRouterKey: document.getElementById('openRouterKey').value.trim(),
   };
-}
+  await ipcRenderer.invoke('save-settings', s);
+  applySettings(s);
+  document.getElementById('settingsOverlay').style.display = 'none';
+});
+
+document.getElementById('settingsClearBtn').addEventListener('click', async () => {
+  document.getElementById('customAiName').value = '';
+  document.getElementById('customAiUrl').value = '';
+  document.getElementById('openRouterKey').value = '';
+  await ipcRenderer.invoke('save-settings', {});
+  applySettings({});
+  document.getElementById('settingsOverlay').style.display = 'none';
+});
+
+
+
+
+
+
+
+
+
 
 // Disk open, save, delete, open, run (adapted to tabs)
 diskOpenBtn.onclick = () => diskFileInput.click();
@@ -1573,8 +1582,11 @@ ipcRenderer.on('webview-reattached', () => {
   updateLayout();
 });
 
-ipcRenderer.on('trigger-settings-open', () => {
-  loadSettings();
+ipcRenderer.on('trigger-settings-open', async () => {
+  const s = await ipcRenderer.invoke('load-settings');
+  document.getElementById('customAiName').value = s.customAiName || '';
+  document.getElementById('customAiUrl').value = s.customAiUrl || '';
+  document.getElementById('openRouterKey').value = s.openRouterKey || '';
   settingsOverlay.style.display = 'flex';
 });
 
@@ -1611,4 +1623,4 @@ editorArea.style.display = 'none';
 editorArea.style.flexDirection = 'column';
 document.getElementById('cmHost').style.height = '400px';
 initCodeMirror();
-loadSettings();
+ipcRenderer.invoke('load-settings').then(s => applySettings(s));

@@ -400,6 +400,7 @@
       <button data-url="https://www.kimi.com/">Kimi</button>
       <button data-url="https://agent.minimax.io/">MiniMax</button>
       <button data-url="https://chat.mistral.ai/">Mistral</button>
+	  <button data-url="https://github.com/">GitHub</button>
       <div style="margin-left:auto; display:flex; gap:6px;">
         <button id="settingsBtn" class="settings-btn" style="margin-left:0;" title="Settings">⚙️</button>
         <button id="detachWebviewBtn" class="settings-btn" style="margin-left:0;" title="Detach browser to own window">📌</button>
@@ -436,25 +437,26 @@
 </div>
 
 
-<!-- Settings Modal (Custom AI Endpoint) -->
+<!-- Settings Modal -->
 <div id="settingsOverlay" class="modal-overlay">
   <div class="modal" style="min-width: 450px;">
-    <h3>⚙️ Custom AI Settings</h3>
+    <h3>⚙️ Settings</h3>
     <div class="modal-row">
-      <label>Custom Webview URL (e.g. http://localhost:3000)</label>
-      <input id="customAiUrl" type="text" placeholder="Leave empty to disable custom AI">
+      <label style="font-size:0.75rem;color:#8b949e;">Custom AI Name</label>
+      <input id="customAiName" type="text" placeholder="Button label">
     </div>
     <div class="modal-row">
-      <label><input type="checkbox" id="enableApiKey"> Enable API key (for injection)</label>
-      <input id="apiKeyInput" type="password" placeholder="API Key" disabled>
+      <label style="font-size:0.75rem;color:#8b949e;">Custom AI URL</label>
+      <input id="customAiUrl" type="text" placeholder="https:// or http://localhost:...">
     </div>
+    <hr style="border-color:#30363d; margin:8px 0;">
+    <div style="font-size:0.7rem;color:#8b949e;font-weight:700;text-transform:uppercase;margin-bottom:4px;">OpenRouter API</div>
     <div class="modal-row">
-      <label>Model name (optional, for button label)</label>
-      <input id="modelName" type="text" placeholder="e.g., Llama 3, GPT-4o, Ollama">
+      <input id="openRouterKey" type="password" placeholder="OpenRouter API Key">
     </div>
     <div class="modal-buttons" style="justify-content: space-between;">
-      <button id="removeCustomAiBtn" style="background:#b45353;">🗑️ Remove Custom AI</button>
-      <div style="display: flex; gap: 8px;">
+      <button id="settingsClearBtn" style="background:#b45353;">🗑️ Clear All</button>
+      <div style="display:flex;gap:8px;">
         <button id="settingsCancelBtn">Cancel</button>
         <button id="settingsSaveBtn" class="primary">Save</button>
       </div>
