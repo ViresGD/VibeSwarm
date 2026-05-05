@@ -46,6 +46,8 @@
   const { ipcRenderer } = require('electron');
   const wv = document.getElementById('wv');
   const navBar = document.getElementById('navBar');
+  const path = require('path');
+	wv.setAttribute('preload', `file://${path.join(__dirname, 'orpac-preload.js')}`);
 
   // Update active state of default nav buttons
   function updateActive(url) {
@@ -73,29 +75,31 @@
   };
 
   // ── Dynamic custom buttons from settings ──
-  function applySettings(settings) {
-    const container = document.getElementById('customButtonsContainer');
-    container.innerHTML = ''; // clear previous
+	function applySettings(settings) {
+	  const container = document.getElementById('customButtonsContainer');
+	  container.innerHTML = '';
 
-    if (settings.customAiName && settings.customAiUrl) {
-      const btn = document.createElement('button');
-      btn.textContent = settings.customAiName;
-      btn.onclick = () => {
-        wv.src = settings.customAiUrl;
-        updateActive(settings.customAiUrl);
-      };
-      container.appendChild(btn);
-    }
+	  if (settings.customAiName && settings.customAiUrl) {
+		const btn = document.createElement('button');
+		btn.textContent = settings.customAiName;
+		btn.onclick = () => {
+		  wv.src = settings.customAiUrl;             // ← FIXED
+		  updateActive(settings.customAiUrl);
+		};
+		container.appendChild(btn);
+	  }
 
-    if (settings.openRouterKey) {
-      const orpacBtn = document.createElement('button');
-      orpacBtn.textContent = 'ORPAC';
-      orpacBtn.style.background = '#6a3ea1';
-      orpacBtn.title = 'OpenRouter Personal Artificial Coder';
-      orpacBtn.onclick = () => { /* future */ };
-      container.appendChild(orpacBtn);
-    }
-  }
+	  if (settings.openRouterKey) {
+		const orpacBtn = document.createElement('button');
+		orpacBtn.textContent = 'ORPAC';
+		orpacBtn.style.background = '#6a3ea1';
+		orpacBtn.title = 'OpenRouter Personal Artificial Coder';
+		orpacBtn.onclick = () => {
+		  wv.src = 'http://localhost:51210/orpac.html';
+		};
+		container.appendChild(orpacBtn);
+	  }
+	}
 
   // Receive initial data (url + settings) from main process
   ipcRenderer.on('detach-init', (e, { url, settings }) => {

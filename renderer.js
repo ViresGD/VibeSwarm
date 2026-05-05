@@ -168,7 +168,7 @@ async function initCodeMirror() {
       safeImport(ESM + '@codemirror/lang-yaml@6'),
       safeImport(ESM + '@codemirror/lang-toml@6'),
       safeImport(ESM + '@codemirror/lang-bash@6'),
-	  safeImport(ESM + '@codemirror/legacy-modes@6'),
+      safeImport(ESM + '@codemirror/legacy-modes@6'),
     ]);
 
     window._CM = {
@@ -219,7 +219,7 @@ async function initCodeMirror() {
       langYaml:  langYaml_mod,
       langToml:  langToml_mod,
       langBash:  langBash_mod,
-	  langLegacy: langLegacy_mod,
+      langLegacy: langLegacy_mod,
     };
 
     const host = document.getElementById('cmHost');
@@ -624,20 +624,17 @@ function renderFileTreeLazy() {
       const nameSpan = document.createElement('span'); nameSpan.textContent = node.name;
       div.appendChild(toggleSpan); div.appendChild(nameSpan);
       if (node.type === 'folder') {
-		  
-		  
-		div.addEventListener('contextmenu', (e) => {
-		  e.preventDefault();
-		  e.stopPropagation();
-		  ctxTargetFolderNode = node;
-		  // Hide the other context menu if visible
-		  treeContextMenu.style.display = 'none';
-		  folderContextMenu.style.display = 'block';
-		  // Position exactly like the file menu (using the same window edge offsets)
-		  folderContextMenu.style.left = `${Math.min(e.clientX, window.innerWidth - 160)}px`;
-		  folderContextMenu.style.top = `${Math.min(e.clientY, window.innerHeight - 120)}px`;
-		});
-		
+        div.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          ctxTargetFolderNode = node;
+          // Hide the other context menu if visible
+          treeContextMenu.style.display = 'none';
+          folderContextMenu.style.display = 'block';
+          // Position exactly like the file menu (using the same window edge offsets)
+          folderContextMenu.style.left = `${Math.min(e.clientX, window.innerWidth - 160)}px`;
+          folderContextMenu.style.top = `${Math.min(e.clientY, window.innerHeight - 120)}px`;
+        });
       }
       container.appendChild(div);
       if (node.expanded) {
@@ -648,7 +645,7 @@ function renderFileTreeLazy() {
     } else {
       div.className = 'tree-item-file'; div.draggable = true; div.title = 'Drag to AI panel • Right-click';
       div.setAttribute('data-file-id', node.id);
-	  div.addEventListener('dragstart', (e) => { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/vibe-tree-file-id', node.id.toString()); if (aiWebviewElem) aiWebviewElem.style.pointerEvents = 'none'; });
+      div.addEventListener('dragstart', (e) => { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/vibe-tree-file-id', node.id.toString()); if (aiWebviewElem) aiWebviewElem.style.pointerEvents = 'none'; });
       div.addEventListener('dragend', () => { if (aiWebviewElem) aiWebviewElem.style.pointerEvents = ''; dropOverlay.classList.remove('active'); });
       div.addEventListener('contextmenu', (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -821,7 +818,7 @@ rightPanel.addEventListener('drop', handleFileDrop);
 
 // Webview: temporarily disable its pointer events so drag events reach the right panel
 const aiWebviewElem = document.getElementById('aiWebview');
-
+aiWebviewElem.setAttribute('preload', `file://${__dirname}/orpac-preload.js`);
 
 // Wire up AI nav buttons
 aiNav.querySelectorAll('button[data-url]').forEach(btn => {
@@ -1187,7 +1184,6 @@ termInsertBtn.onclick = async () => {
   }
 
   
-  
   // Flatten all items into a single list keeping group headers
   const allItems = [];
   for (const group of snippets) {
@@ -1250,8 +1246,6 @@ termInsertBtn.onclick = async () => {
   insertPopupContent.appendChild(colWrapper);
   positionInsertPopup();
   
-  
-  
   insertPopup.style.display = 'block';
 };
 
@@ -1272,14 +1266,6 @@ function updateActiveButton(url) {
     if (customBtn) customBtn.classList.add('active');
   }
 }
-
-
-
-
-
-
-
-
 
 
 // ── Settings ──────────────────────────────────────────────
@@ -1315,7 +1301,15 @@ async function applySettings(s) {
       orpacBtn.textContent = 'ORPAC';
       orpacBtn.style.background = '#6a3ea1';
       orpacBtn.title = 'OpenRouter Personal Artificial Coder';
-      orpacBtn.addEventListener('click', () => { /* future */ });
+	  orpacBtn.addEventListener('click', () => {
+		  const projectParam = currentProjectPath
+			? `?project=${encodeURIComponent(currentProjectPath)}`
+			: '';
+		  aiWebview.src = `http://localhost:51210/orpac.html${projectParam}`;
+		  aiNav.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+		  orpacBtn.classList.add('active');
+	});
+	  
       const rightDiv = aiNav.querySelector('div[style*="margin-left:auto"]');
       aiNav.insertBefore(orpacBtn, rightDiv);
     }
@@ -1332,6 +1326,36 @@ async function applySettings(s) {
 // Load settings on startup
 ipcRenderer.invoke('load-settings').then(s => {
   applySettings(s);
+});
+
+ipcRenderer.on('orpac-set-file-content', (event, newContent) => {
+  if (activeTabIndex === -1) {
+    setStatus('No file open – code not applied');
+    return;
+  }
+  // Replace editor content
+  cmSetContent(newContent, path.basename(currentOpenTabs[activeTabIndex].relativePath));
+  markActiveTabDirty();
+  setStatus('📄 Code applied to current file');
+});
+
+ipcRenderer.on('orpac-file-created', async (event, { absolutePath, content }) => {
+  if (!currentProjectPath) return;
+  const relPath = path.relative(currentProjectPath, absolutePath);
+  await loadRootDirectory();    // refresh file tree
+  const fileObj = {
+    absolutePath,
+    relativePath: relPath,
+    content: content
+  };
+  await openFileInTab(fileObj);
+  // Mark the tab as clean (the file was just saved)
+  const tab = currentOpenTabs.find(t => t.absolutePath === absolutePath);
+  if (tab) {
+    tab.dirty = false;
+    renderTabs();
+  }
+  setStatus(`✅ ${path.basename(relPath)} ready`);
 });
 
 document.getElementById('settingsBtn').addEventListener('click', async () => {
@@ -1367,14 +1391,6 @@ document.getElementById('settingsClearBtn').addEventListener('click', async () =
 });
 
 
-
-
-
-
-
-
-
-
 // Disk open, save, delete, open, run (adapted to tabs)
 diskOpenBtn.onclick = () => diskFileInput.click();
 diskFileInput.onchange = async () => {
@@ -1389,9 +1405,6 @@ diskFileInput.onchange = async () => {
   diskFileInput.value = '';
 };
 saveBtn.onclick = async () => { await saveCurrentTab(); };
-
-
-
 
 
 deleteBtn.onclick = async () => {
@@ -1436,8 +1449,6 @@ deleteBtn.onclick = async () => {
     }
   }, 100);
 };
-
-
 
 
 openBtn.onclick = async () => {
@@ -1615,7 +1626,6 @@ ipcRenderer.on('terminal-reattached', async () => {
   term.write('\r\n\x1b[33m[Terminal reattached]\x1b[0m\r\n');
   fitTerminal();
 });
-
 
 // Final init
 aiWebview.addEventListener('did-finish-load', () => updateActiveButton(aiWebview.getURL()));

@@ -7,6 +7,7 @@ const os = require('os');
 let mainWindow;
 const ptyProcesses = {};
 
+
 // Settings persistence
 const settingsPath = path.join(app.getPath('userData'), 'vibe-settings.json');
 async function loadSettings() {
@@ -428,3 +429,233 @@ ipcMain.handle('update-html-preview', async (event, content) => {
   }
   return true;
 });
+
+
+// ─── ORPAC local UI server ───
+const orpacServer = http.createServer((req, res) => {
+  let filePath = '';
+  const urlPath = req.url.split('?')[0];
+  if (urlPath === '/' || urlPath === '/orpac.html') {
+    filePath = path.join(__dirname, 'orpac.html');
+  } else if (urlPath === '/orpac.js') {
+    filePath = path.join(__dirname, 'orpac.js');
+  } else {
+    res.writeHead(404);
+    res.end('Not Found');
+    return;
+  }
+  const fsSync = require('fs'); // use sync version for simplicity
+  fsSync.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(500);
+      res.end('Error loading file');
+      return;
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = { '.html': 'text/html', '.js': 'application/javascript' };
+    res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
+    res.end(data);
+  });
+});
+orpacServer.listen(51210);
+
+ipcMain.handle('orpac-get-models', async () => {
+  try {
+    const settings = await loadSettings();
+    if (!settings.openRouterKey) throw new Error('OpenRouter key not set');
+    const res = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: { Authorization: `Bearer ${settings.openRouterKey}` }
+    });
+    const data = await res.json();
+    return (data.data || []).map(m => ({ id: m.id, name: m.name }));
+  } catch (e) {
+    return [];
+  }
+});
+
+// Stop a stream
+ipcMain.on('orpac-stop-stream', (event, streamId) => {
+  const controller = global._activeStreams?.[streamId];
+  if (controller) controller.abort();
+});
+
+ipcMain.on('orpac-chat', async (event, { streamId, model, messages }) => {
+  const settings = await loadSettings();
+  if (!settings.openRouterKey) {
+    event.reply('orpac-stream-error', { id: streamId, error: 'No API key' });
+    return;
+  }
+
+  const abortController = new AbortController();
+  // Save to stop later
+  global._activeStreams = global._activeStreams || {};
+  global._activeStreams[streamId] = abortController;
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${settings.openRouterKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+      }),
+      signal: abortController.signal,
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const dataStr = trimmed.slice(6);
+        if (dataStr === '[DONE]') continue;
+        try {
+          const json = JSON.parse(dataStr);
+          const content = json.choices?.[0]?.delta?.content;
+          if (content) {
+            event.reply('orpac-stream-data', { id: streamId, chunk: content });
+          }
+        } catch (e) { /* skip broken chunks */ }
+      }
+    }
+    event.reply('orpac-stream-end', { id: streamId });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      event.reply('orpac-stream-end', { id: streamId });
+    } else {
+      event.reply('orpac-stream-error', { id: streamId, error: err.message });
+    }
+  } finally {
+    delete global._activeStreams[streamId];
+  }
+});
+
+
+ipcMain.on('orpac-apply-code', (event, codeContent) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('orpac-set-file-content', codeContent);
+  }
+});
+
+// Read specific lines of a file (for AI context requests)
+ipcMain.handle('orpac-read-file-lines', async (event, { projectBase, relativePath, startLine, endLine }) => {
+  const absPath = path.join(projectBase, relativePath);
+  try {
+    const data = await fs.readFile(absPath, 'utf8');
+    const lines = data.split('\n');
+    const selected = lines.slice(startLine - 1, endLine).join('\n');
+    return { success: true, content: selected };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+
+// Read a whole file (for AI context injection)
+ipcMain.handle('orpac-read-file', async (event, { projectBase, relativePath }) => {
+  const absPath = path.join(projectBase, relativePath);
+  try {
+    const content = await fs.readFile(absPath, 'utf8');
+    return { success: true, content };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Write a full file (with optional backup)
+ipcMain.on('orpac-write-file', async (event, { projectBase, relativePath, content, backup }) => {
+  const absPath = path.join(projectBase, relativePath);
+  const dir = path.dirname(absPath);
+  await fs.mkdir(dir, { recursive: true });
+
+  if (backup) {
+    try {
+      const existing = await fs.readFile(absPath, 'utf8');
+      await fs.writeFile(absPath + '.bak', existing, 'utf8');
+    } catch {}
+  }
+
+  await fs.writeFile(absPath, content, 'utf8');
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('orpac-file-created', { absolutePath: absPath, content });
+  }
+});
+
+// Apply a unified diff to a file
+ipcMain.on('orpac-apply-diff', async (event, { projectBase, relativePath, diffText }) => {
+  const absPath = path.join(projectBase, relativePath);
+  try {
+    let original = '';
+    try { original = await fs.readFile(absPath, 'utf8'); } catch {}
+
+    // For new files, extract + lines directly (avoids hunk count mismatch issues)
+    const isNewFile = !original && diffText.includes('-0,0');
+    let patched;
+    if (isNewFile) {
+      patched = diffText.split('\n')
+        .filter(l => l.startsWith('+'))
+        .map(l => l.slice(1))
+        .join('\n');
+    } else {
+      await fs.writeFile(absPath + '.bak', original, 'utf8');
+      patched = applyUnifiedDiff(original, diffText);
+    }
+
+    await fs.mkdir(path.dirname(absPath), { recursive: true });
+    await fs.writeFile(absPath, patched, 'utf8');
+	console.log('ORPAC wrote:', absPath);
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('orpac-file-created', { absolutePath: absPath, content: patched });
+    }
+  } catch (err) {
+    console.error('Diff application failed:', err);
+  }
+});
+
+// Minimal unified diff applier (handles context, deletions, additions)
+function applyUnifiedDiff(original, diff) {
+  const diffLines = diff.split('\n');
+  const removed = [], added = [];
+
+  for (const line of diffLines) {
+    if (line.startsWith('-') && !line.startsWith('---')) removed.push(line.slice(1));
+    else if (line.startsWith('+') && !line.startsWith('+++')) added.push(line.slice(1));
+  }
+
+  if (removed.length === 0) return original;
+
+  // Try exact block match
+  const searchStr = removed.join('\n');
+  const idx = original.indexOf(searchStr);
+  if (idx !== -1) {
+    return original.slice(0, idx) + added.join('\n') + original.slice(idx + searchStr.length);
+  }
+
+  // Fallback: replace line by line using trimmed comparison
+  const origLines = original.split('\n');
+  const result = [...origLines];
+  for (let r = 0; r < removed.length; r++) {
+    const trimTarget = removed[r].trim();
+    for (let o = 0; o < result.length; o++) {
+      if (result[o].trim() === trimTarget) {
+        result[o] = added[r] ?? '';
+        break; // replace first match only
+      }
+    }
+  }
+  return result.join('\n');
+}
