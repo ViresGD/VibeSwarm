@@ -1,3 +1,10 @@
+# Release Notes - Vibe Swarm v4.3.7
+
+**Release Date:** May 6, 2026
+
+## Overview
+This patch release focuses on minor bug fixes and the added OpenRouer API access for autonomous coding.
+
 # Release Notes - Vibe Swarm v4.2.3
 
 **Release Date:** May 3, 2026
