@@ -16,24 +16,20 @@
     .input-area { display:flex; gap:8px; padding:12px; background:#161b22; border-top:1px solid #30363d; flex-shrink:0; }
     #promptInput { flex:1; background:#0d1117; border:1px solid #30363d; border-radius:10px; padding:10px; color:white; font-size:0.85rem; resize:none; outline:none; }
     #sendBtn { background:#3b82f6; border:none; color:white; padding:10px 18px; border-radius:10px; cursor:pointer; font-weight:600; }
-    #stopBtn { background:#b45353; display:none; }
-    .apply-btn { background:#2c6e2c; border:none; color:white; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:0.75rem; margin-top:6px; }
-    .code-block { position:relative; margin:4px 0; }
+    #stopBtn { background:#b45353; display:none; padding:10px 18px; border:none; color:white; border-radius:10px; cursor:pointer; font-weight:600; }
   </style>
 </head>
 <body>
 <div class="toolbar" style="flex-direction:column; align-items:flex-start; gap:6px;">
-    <!-- First row: filter input + model selector -->
     <div style="display:flex; gap:10px; align-items:center; width:100%;">
-        <input id="modelFilter" type="text" placeholder="Filter models..." value="a12b:free" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; width:180px;">
+        <input id="modelFilter" type="text" placeholder="Filter models..." value="minimax M2.5 (free)" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; width:180px;">
         <select id="modelSelect" style="min-width:140px; background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;"><option>Loading models…</option></select>
     </div>
-	<!-- Second row: icon buttons (left aligned) -->
-	<div style="display:flex; gap:8px;">
-		<button id="newChatBtn" title="New Chat" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;">➕</button>
-		<button id="copyLastCodeBtn" title="Copy last code block" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;">📋</button>
-		<button id="applyToFileBtn" title="Replace current file content with last AI code block" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;">📄</button>
-	</div>
+    <div style="display:flex; gap:8px;">
+        <button id="newChatBtn" title="New Chat" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;">➕</button>
+        <button id="copyLastCodeBtn" title="Copy last code block" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;">📋</button>
+        <button id="applyToFileBtn" title="Replace current file content with last AI code block" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;">📄</button>
+    </div>
 </div>
   <div id="messages"></div>
   <div class="input-area">

@@ -1,3 +1,76 @@
+# Project Files
+
+## Folder Structure
+```
+├─ dist/
+├─ index.html
+├─ insert.json
+├─ main.js
+├─ node_modules/
+├─ orpac-preload.js
+├─ orpac.html
+├─ orpac.js
+├─ package-lock.json
+├─ package.json
+├─ README.md
+├─ RELEASE_NOTES.md
+├─ renderer.js
+├─ terminal-detached.html
+├─ webview-detached.html
+```
+
+## Selected Files
+
+### orpac.html
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ORPAC – OpenRouter Chat</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { height:100vh; display:flex; flex-direction:column; background:#0d1117; color:#e6edf3; font-family:system-ui, sans-serif; overflow:hidden; }
+    .toolbar { display:flex; align-items:center; gap:10px; padding:8px 12px; background:#161b22; border-bottom:1px solid #30363d; flex-shrink:0; }
+    .toolbar select, .toolbar button { background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer; }
+    #messages { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:12px; }
+    .msg { max-width:85%; padding:10px 14px; border-radius:12px; font-size:0.85rem; line-height:1.5; white-space:pre-wrap; }
+    .msg.user { align-self:flex-end; background:#2d4f7c; }
+    .msg.assistant { align-self:flex-start; background:#21262d; border:1px solid #30363d; }
+    .msg pre { background:#0a0c10; padding:8px; border-radius:6px; overflow-x:auto; margin:6px 0; }
+    .input-area { display:flex; gap:8px; padding:12px; background:#161b22; border-top:1px solid #30363d; flex-shrink:0; }
+    #promptInput { flex:1; background:#0d1117; border:1px solid #30363d; border-radius:10px; padding:10px; color:white; font-size:0.85rem; resize:none; outline:none; }
+    #sendBtn { background:#3b82f6; border:none; color:white; padding:10px 18px; border-radius:10px; cursor:pointer; font-weight:600; }
+    #stopBtn { background:#b45353; display:none; padding:10px 18px; border:none; color:white; border-radius:10px; cursor:pointer; font-weight:600; }
+  </style>
+</head>
+<body>
+<div class="toolbar" style="flex-direction:column; align-items:flex-start; gap:6px;">
+    <div style="display:flex; gap:10px; align-items:center; width:100%;">
+        <input id="modelFilter" type="text" placeholder="Filter models..." value="minimax M2.5 (free)" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; width:180px;">
+        <select id="modelSelect" style="min-width:140px; background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;"><option>Loading models…</option></select>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <button id="newChatBtn" title="New Chat" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;">➕</button>
+        <button id="copyLastCodeBtn" title="Copy last code block" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;">📋</button>
+        <button id="applyToFileBtn" title="Replace current file content with last AI code block" style="background:#21262d; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer;">📄</button>
+    </div>
+</div>
+  <div id="messages"></div>
+  <div class="input-area">
+    <textarea id="promptInput" rows="4" placeholder="Message OpenRouter…"></textarea>
+    <button id="sendBtn">Send</button>
+    <button id="stopBtn">Stop</button>
+  </div>
+  <script src="orpac.js"></script>
+</body>
+</html>
+```
+
+### orpac.js
+
+```js
 const modelSelect = document.getElementById('modelSelect');
 const messagesDiv = document.getElementById('messages');
 const promptInput = document.getElementById('promptInput');
@@ -376,3 +449,74 @@ promptInput.addEventListener('keydown', e => {
     sendBtn.click();
   }
 });
+```
+
+### package.json
+
+```json
+{
+  "name": "Vibe_Swarm",
+  "version": "4.3.7",
+  "description": "Vibe Swarm - AI Swarm for Vibe-Coding",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "electron-rebuild -f -w @lydell/node-pty",
+    "dist": "electron-builder --win --publish never"
+  },
+  "author": "VITAE Online",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^41.3.0",
+    "electron-builder": "^24.6.4",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.vibeswarm.desktop",
+    "productName": "Vibe Swarm",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache",
+      "!dist"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "icon.ico"
+    }
+  },
+  "dependencies": {
+    "@lydell/node-pty": "^1.1.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/view": "^6.26.0",
+    "@codemirror/commands": "^6.3.3",
+    "@codemirror/language": "^6.10.1",
+    "@codemirror/search": "^6.5.6",
+    "@codemirror/autocomplete": "^6.16.0",
+    "@codemirror/theme-one-dark": "^6.1.2",
+
+    "@codemirror/lang-javascript": "^6.2.2",
+    "@codemirror/lang-python": "^6.1.6",
+    "@codemirror/lang-html": "^6.4.9",
+    "@codemirror/lang-css": "^6.2.1",
+    "@codemirror/lang-json": "^6.0.1",
+    "@codemirror/lang-markdown": "^6.2.5",
+    "@codemirror/lang-xml": "^6.1.0",
+    "@codemirror/lang-sql": "^6.7.1"
+  }
+}
+```
+

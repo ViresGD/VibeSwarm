@@ -345,7 +345,7 @@ function buildExtensions(filename) {
     }),
 
     // ── Built-in search panel (Ctrl+F) ──
-    search({ top: false }),
+    search({ top: true }),
     keymap.of(searchKeymap),
 
     // ── Key bindings ──
@@ -1300,7 +1300,7 @@ async function applySettings(s) {
       orpacBtn.id = 'orpacBtn';
       orpacBtn.textContent = 'ORPAC';
       orpacBtn.style.background = '#6a3ea1';
-      orpacBtn.title = 'OpenRouter Personal Artificial Coder';
+      orpacBtn.title = 'OpenRouter Personal Autonomous Coder';
 	  orpacBtn.addEventListener('click', () => {
 		  const projectParam = currentProjectPath
 			? `?project=${encodeURIComponent(currentProjectPath)}`
@@ -1343,17 +1343,24 @@ ipcRenderer.on('orpac-file-created', async (event, { absolutePath, content }) =>
   if (!currentProjectPath) return;
   const relPath = path.relative(currentProjectPath, absolutePath);
   await loadRootDirectory();    // refresh file tree
-  const fileObj = {
-    absolutePath,
-    relativePath: relPath,
-    content: content
-  };
-  await openFileInTab(fileObj);
-  // Mark the tab as clean (the file was just saved)
-  const tab = currentOpenTabs.find(t => t.absolutePath === absolutePath);
-  if (tab) {
-    tab.dirty = false;
+
+  // If the file is already open in a tab, update its content in-place
+  // (openFileInTab would skip it and leave the stale in-memory content)
+  const existingIdx = currentOpenTabs.findIndex(t => t.absolutePath === absolutePath);
+  if (existingIdx !== -1) {
+    currentOpenTabs[existingIdx].content = content;
+    currentOpenTabs[existingIdx].dirty = false;
+    // If it's the active tab, also refresh the editor view
+    if (existingIdx === activeTabIndex) {
+      cmSetContent(content, path.basename(relPath));
+    }
     renderTabs();
+  } else {
+    // File not open yet — open it as a new tab
+    const fileObj = { absolutePath, relativePath: relPath, content };
+    await openFileInTab(fileObj);
+    const tab = currentOpenTabs.find(t => t.absolutePath === absolutePath);
+    if (tab) { tab.dirty = false; renderTabs(); }
   }
   setStatus(`✅ ${path.basename(relPath)} ready`);
 });

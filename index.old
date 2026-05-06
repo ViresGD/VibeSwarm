@@ -15,80 +15,18 @@
       overflow: hidden;
     }
 
-    /* ===== LEFT PANEL (file tree + editor) ===== */
     .left-panel {
-      width: 57%;                      /* 14% tree + 43% editor */
+      width: 50%;
       min-width: 300px;
-      max-width: 80%;
+      max-width: 70%;
       display: flex;
       flex-direction: column;
       border-right: 1px solid #30363d;
+      padding: 16px;
+      overflow-y: auto;
       background: #0d1117;
-      overflow: hidden;                /* let children scroll */
     }
 
-    /* Header area inside left panel */
-    .left-header {
-      flex-shrink: 0;
-      padding: 16px 16px 8px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    /* The horizontal container for file tree and editor */
-    .left-content {
-      flex: 1;
-      display: flex;
-      flex-direction: row;
-      overflow: hidden;
-      min-height: 0;                 /* allow flex shrink */
-    }
-
-	.file-tree-panel {
-	  width: 280px;          /* enough for the four buttons + padding */
-	  min-width: 200px;      /* prevent squeezing too small */
-	  flex-shrink: 0;        /* don't shrink below 280px */
-	  display: flex;
-	  flex-direction: column;
-	  border-right: 1px solid #21262d;
-	  background: #0a0c10;
-	  overflow-y: auto;
-	  overflow-x: hidden;
-	  padding: 8px 10px;
-	}
-
-    /* Resizable handle between tree and editor */
-    .tree-divider {
-      width: 4px;
-      background: #21262d;
-      cursor: col-resize;
-      flex-shrink: 0;
-      transition: background 0.1s;
-    }
-    .tree-divider:hover,
-    .tree-divider.dragging {
-      background: #3b82f6;
-    }
-
-    /* Editor side (takes remaining space = 43% of total) */
-    .editor-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-width: 0;
-    }
-
-    /* Make the editor area fill the editor panel */
-    .editor-area {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ===== DIVIDER BETWEEN LEFT AND RIGHT PANELS ===== */
     .divider {
       width: 5px;
       background: #30363d;
@@ -97,9 +35,8 @@
     }
     .divider:hover { background: #3b82f6; }
 
-    /* ===== RIGHT PANEL (browser + terminal) ===== */
     .right-panel {
-      flex: 1;                        /* 43% of total */
+      flex: 1;
       display: flex;
       flex-direction: column;
       background: #0d1117;
@@ -107,16 +44,6 @@
       position: relative;
     }
 
-    /* Browser section */
-    .right-top {
-      display: flex;
-      flex-direction: column;
-      flex: 1 1 60%;
-      min-height: 80px;
-      overflow: hidden;
-    }
-
-    /* AI navigation bar */
     .ai-nav {
       display: flex;
       gap: 6px;
@@ -147,7 +74,6 @@
       width: 100%;
     }
 
-    /* Drop overlay */
     .drop-overlay {
       position: absolute;
       inset: 0;
@@ -169,70 +95,11 @@
       text-align: center;
     }
 
-    /* Vertical divider between browser and terminal */
-    .v-divider {
-      height: 6px;
-      background: #1a1f26;
-      cursor: row-resize;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-top: 1px solid #30363d;
-      border-bottom: 1px solid #30363d;
-    }
-    .v-divider:hover,
-    .v-divider.dragging { background: #3b82f6; }
-    .v-divider-grip {
-      width: 36px;
-      height: 3px;
-      background: #30363d;
-      border-radius: 2px;
-    }
-
-    /* Terminal section */
-    .right-bottom {
-      display: flex;
-      flex-direction: column;
-      flex: 0 0 220px;
-      min-height: 60px;
-      background: #0d0f13;
-      overflow: hidden;
-    }
-    .terminal-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 10px;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
-    }
-    .terminal-title { font-size: 0.75rem; font-weight: 600; color: #58a6ff; }
-    .terminal-cwd {
-      font-size: 0.7rem;
-      color: #8b949e;
-      font-family: monospace;
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .term-btn {
-      background: #21262d;
-      border: none;
-      color: #8b949e;
-      padding: 3px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.7rem;
-    }
-    #terminalHost { flex: 1; overflow: hidden; padding: 4px; }
-    .xterm { height: 100%; }
-
-    /* ===== REUSABLE STYLES (buttons, modals, etc.) ===== */
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 16px;
     }
     h2 {
       font-size: 1.2rem;
@@ -263,13 +130,14 @@
       background: #161b22;
       padding: 6px 10px;
       border-radius: 16px;
+      margin-bottom: 12px;
     }
     .tree-container {
       background: #0a0c10;
       border-radius: 16px;
       border: 1px solid #21262d;
       padding: 12px;
-      max-height: none;          /* fill column */
+      max-height: 200px;
       overflow-y: auto;
       font-size: 0.7rem;
       margin-bottom: 16px;
@@ -287,16 +155,21 @@
       color: #8b949e;
       margin-left: 16px;
     }
-	
     .tree-select-all {
       margin: 8px 0;
       display: flex;
       gap: 8px;
-      flex-wrap: nowrap;              /* never wrap – keeps all four buttons in one row */
-      justify-content: center;        /* center them (no visible effect when width = content width) */
+      flex-wrap: wrap;
     }
 
     /* ========== MULTI‑TAB EDITOR ========== */
+    .editor-area {
+      margin-top: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
     .tabs-container {
       display: flex;
       gap: 2px;
@@ -305,7 +178,6 @@
       padding: 0 4px;
       overflow-x: auto;
       flex-wrap: nowrap;
-      flex-shrink: 0;
     }
     .tab {
       display: inline-flex;
@@ -346,10 +218,9 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 8px 4px;
+      margin: 8px 0 4px;
       flex-wrap: wrap;
       gap: 4px;
-      flex-shrink: 0;
     }
     .editor-header-right {
       display: flex;
@@ -381,6 +252,69 @@
     }
 
     #diskFileInput { display: none; }
+
+    .right-top {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 60%;
+      min-height: 80px;
+      overflow: hidden;
+    }
+    .v-divider {
+      height: 6px;
+      background: #1a1f26;
+      cursor: row-resize;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-top: 1px solid #30363d;
+      border-bottom: 1px solid #30363d;
+    }
+    .v-divider:hover, .v-divider.dragging { background: #3b82f6; }
+    .v-divider-grip {
+      width: 36px;
+      height: 3px;
+      background: #30363d;
+      border-radius: 2px;
+    }
+
+    .right-bottom {
+      display: flex;
+      flex-direction: column;
+      flex: 0 0 220px;
+      min-height: 60px;
+      background: #0d0f13;
+      overflow: hidden;
+    }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+    }
+    .terminal-title { font-size: 0.75rem; font-weight: 600; color: #58a6ff; }
+    .terminal-cwd {
+      font-size: 0.7rem;
+      color: #8b949e;
+      font-family: monospace;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .term-btn {
+      background: #21262d;
+      border: none;
+      color: #8b949e;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.7rem;
+    }
+    #terminalHost { flex: 1; overflow: hidden; padding: 4px; }
+    .xterm { height: 100%; }
 
     /* Modal styles */
     .modal-overlay {
@@ -414,75 +348,47 @@
     }
     .modal-row { display: flex; flex-direction: column; gap: 4px; }
     .modal-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
-
-    .ctx-item:hover { background: #21262d; }
-    .tree-item-file[draggable="true"] { cursor: grab; }
-    button.run-cmd { background: #2c6e6e; }
-    button.run-cmd:hover { background: #1e5a5a; }
-    .tab .tab-filename { color: #e6edf3; }
   </style>
 </head>
 <body>
-
-<!-- ==================== LEFT PANEL (Tree + Editor) ==================== -->
 <div class="left-panel" id="leftPanel">
-  <!-- TOP: folder selection & info -->
-  <div class="left-header">
-    <div class="header">
-      <h2>📁 Project Editor</h2>
-      <button id="refreshBtn">⟳ Refresh</button>
+  <div class="header"><h2>📁 Project Editor</h2><button id="refreshBtn">⟳ Refresh</button></div>
+  <div id="folderInfo" class="folder-info">📁 No folder selected</div>
+  <button id="attachFolderBtn" class="primary">📂 Select Project Folder</button>
+  <div id="folderTreeArea" style="margin-top:12px;">
+    <div class="tree-select-all">
+	  <button id="selectAllFiles">✅ Select All</button><button id="selectNoneFiles">❌ None</button>
+      <button id="generateContextBtn" class="primary">📄 Generate Context File</button>
+	  <span style="color:#30363d; font-size:1.2rem; align-self:center;">|</span>
+	  <button id="diskOpenBtn" class="disk" title="Open any file from disk">📁 Open Any File</button>
     </div>
-    <div id="folderInfo" class="folder-info">📁 No folder selected</div>
-    <button id="attachFolderBtn" class="primary">📂 Select Project Folder</button>
+    <div id="fileTree" class="tree-container"></div>
+    <div id="tokenEstimate" class="token-warning" style="display: none;"></div>
   </div>
 
-  <!-- BOTTOM: file tree (left) and editor (right) -->
-  <div class="left-content">
-    <!-- File tree column -->
-    <div class="file-tree-panel" id="fileTreePanel">
-      <div class="tree-select-all">
-	    <button id="diskOpenBtn" title="Open File">📁</button>
-        <button id="selectAllFiles" title="Select All">☑️</button>
-		<button id="selectNoneFiles" title="Deselect All">⬜</button>
-        <button id="generateContextBtn" title="Generate Context File" class="restore">📄</button>
-      </div>
-      <div id="fileTree" class="tree-container"></div>
-      <div id="tokenEstimate" class="token-warning" style="display: none;"></div>
-    </div>
-
-    <!-- Resizable divider between tree and editor -->
-    <div class="tree-divider" id="treeDivider"></div>
-
-    <!-- Editor column -->
-    <div class="editor-panel" id="editorPanel">
-      <div id="editorArea" class="editor-area" style="display: none;">
-        <div class="tabs-container" id="tabsContainer"></div>
-        <div class="editor-header">
-          <div class="editor-header-right">
-		    <button id="diskOpenBtn" class="disk" title="Open any file from disk">📁 Open Any File</button>
-            <button id="newFileBtn" class="run-cmd">➕ New File</button>
-            <button id="openBtn" class="open">🔗 System</button>
-            <button id="runCmdBtn" class="run-cmd">▶ Run</button>
-            <button id="saveBtn" class="primary">💾 Save</button>
-            <button id="deleteBtn" class="danger">🗑️</button>
-            <button id="restoreBtn" class="restore">🔄 Restore</button>
-          </div>
-        </div>
-        <div id="cmHost"></div>
-        <div id="statusMsg" class="status"></div>
+  <!-- Multi‑tab editor area -->
+  <div id="editorArea" class="editor-area" style="display: none;">
+    <div class="tabs-container" id="tabsContainer"></div>
+    <div class="editor-header">
+      <div class="editor-header-right">
+        <button id="newFileBtn" class="run-cmd">➕ New File</button>
+        <button id="openBtn" class="open">🔗 System</button>
+        <button id="runCmdBtn" class="run-cmd">▶ Run</button>
+        <button id="saveBtn" class="primary">💾 Save</button>
+        <button id="deleteBtn" class="danger">🗑️</button>
+        <button id="restoreBtn" class="restore">🔄 Restore</button>
       </div>
     </div>
+    <div id="cmHost"></div>
   </div>
+  <div id="statusMsg" class="status"></div>
 </div>
 
-<!-- Resizable divider between left panel and right panel -->
 <div class="divider" id="divider"></div>
 
-<!-- ==================== RIGHT PANEL (Browser + Terminal) ==================== -->
 <div class="right-panel" id="rightPanel">
   <div class="drop-overlay" id="dropOverlay">
-    <div class="drop-icon">📎</div>
-    <div class="drop-label">Drop files to send to AI</div>
+    <div class="drop-icon">📎</div><div class="drop-label">Drop files to send to AI</div>
   </div>
   <div class="right-top" id="rightTop">
     <div class="ai-nav" id="aiNav">
@@ -494,7 +400,7 @@
       <button data-url="https://www.kimi.com/">Kimi</button>
       <button data-url="https://agent.minimax.io/">MiniMax</button>
       <button data-url="https://chat.mistral.ai/">Mistral</button>
-      <button data-url="https://github.com/">GitHub</button>
+	  <button data-url="https://github.com/">GitHub</button>
       <div style="margin-left:auto; display:flex; gap:6px;">
         <button id="settingsBtn" class="settings-btn" style="margin-left:0;" title="Settings">⚙️</button>
         <button id="detachWebviewBtn" class="settings-btn" style="margin-left:0;" title="Detach browser to own window">📌</button>
@@ -502,23 +408,20 @@
     </div>
     <webview id="aiWebview" src="https://claude.ai/" allowpopups partition="persist:ai"></webview>
   </div>
-  <div class="v-divider" id="vDivider">
-    <div class="v-divider-grip"></div>
-  </div>
+  <div class="v-divider" id="vDivider"><div class="v-divider-grip"></div></div>
   <div class="right-bottom" id="rightBottom">
     <div class="terminal-bar">
       <span class="terminal-title">⚡ Terminal</span>
       <span id="terminalCwd" class="terminal-cwd">~</span>
       <button id="termClearBtn" class="term-btn">✕ Clear</button>
       <button id="termNewBtn" class="term-btn">＋ New</button>
-      <button id="termInsertBtn" class="term-btn" style="background:#2c6e2c;">⚡ Insert</button>
-      <button id="detachTermBtn" class="term-btn" style="background:#5a3e8c;">📌</button>
+	  <button id="termInsertBtn" class="term-btn" style="background:#2c6e2c;">⚡ Insert</button>
+	  <button id="detachTermBtn" class="term-btn" style="background:#5a3e8c;">📌</button>
     </div>
     <div id="terminalHost"></div>
   </div>
 </div>
 
-<!-- Hidden file input -->
 <input type="file" id="diskFileInput" accept="*/*">
 
 <!-- New File Modal -->
@@ -528,11 +431,11 @@
     <div id="newFileFolder" style="font-size:0.75rem; color:#8b949e;"></div>
     <input id="newFileNameInput" type="text" placeholder="filename.js">
     <div class="modal-buttons">
-      <button id="newFileCancelBtn">Cancel</button>
-      <button id="newFileCreateBtn" class="primary">Create</button>
+      <button id="newFileCancelBtn">Cancel</button><button id="newFileCreateBtn" class="primary">Create</button>
     </div>
   </div>
 </div>
+
 
 <!-- Settings Modal -->
 <div id="settingsOverlay" class="modal-overlay">
@@ -561,17 +464,22 @@
   </div>
 </div>
 
-<!-- Context menu for files -->
+<!-- Context menus -->
 <div id="treeContextMenu" style="display:none; position:fixed; z-index:1000; background:#161b22; border:1px solid #30363d; border-radius:10px; padding:6px; min-width:140px;">
-  <div id="ctxRename" class="ctx-item">✏️ Rename</div>
-  <div id="ctxDelete" class="ctx-item">🗑️ Delete</div>
+  <div id="ctxRename" class="ctx-item">✏️ Rename</div><div id="ctxDelete" class="ctx-item">🗑️ Delete</div>
   <div id="ctxSendToAI" class="ctx-item">🤖 Send to AI</div>
 </div>
-<!-- Context menu for folders -->
 <div id="folderContextMenu" style="display:none; position:fixed; z-index:1000; background:#161b22; border:1px solid #30363d; border-radius:10px; padding:6px; min-width:150px;">
-  <div id="ctxFolderRename" class="ctx-item">✏️ Rename Folder</div>
-  <div id="ctxFolderDelete" class="ctx-item">🗑️ Delete Folder</div>
+  <div id="ctxFolderRename" class="ctx-item">✏️ Rename Folder</div><div id="ctxFolderDelete" class="ctx-item">🗑️ Delete Folder</div>
 </div>
+
+<style>
+  .ctx-item:hover { background: #21262d; }
+  .tree-item-file[draggable="true"] { cursor: grab; }
+  button.run-cmd { background: #2c6e6e; }
+  button.run-cmd:hover { background: #1e5a5a; }
+  .tab .tab-filename { color: #e6edf3; }
+</style>
 
 <!-- Insert Snippets Popup -->
 <div id="insertPopup" style="
@@ -590,47 +498,5 @@
 </div>
 
 <script src="renderer.js"></script>
-
-<!-- Optional: Resize logic for the tree-divider (inline) -->
-<script>
-  // Tree‑editor divider drag (minimal, added directly to body)
-  (function() {
-    const treeDivider = document.getElementById('treeDivider');
-    const fileTreePanel = document.getElementById('fileTreePanel');
-    const editorPanel = document.getElementById('editorPanel');
-    let isDragging = false;
-
-    treeDivider.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      treeDivider.classList.add('dragging');
-      document.body.style.cursor = 'col-resize';
-      e.preventDefault();
-    });
-
-    document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      const leftContent = document.querySelector('.left-content');
-      if (!leftContent) return;
-      const rect = leftContent.getBoundingClientRect();
-      let newWidth = e.clientX - rect.left;
-      const totalWidth = rect.width;
-      const minTree = 200;
-      const minEditor = 200;
-      if (newWidth < minTree) newWidth = minTree;
-      if (newWidth > totalWidth - minEditor) newWidth = totalWidth - minEditor;
-      fileTreePanel.style.width = newWidth + 'px';
-      fileTreePanel.style.flex = 'none';
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (isDragging) {
-        isDragging = false;
-        treeDivider.classList.remove('dragging');
-        document.body.style.cursor = '';
-      }
-    });
-  })();
-</script>
-
 </body>
 </html>

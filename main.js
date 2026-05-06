@@ -487,59 +487,90 @@ ipcMain.on('orpac-chat', async (event, { streamId, model, messages }) => {
   }
 
   const abortController = new AbortController();
-  // Save to stop later
   global._activeStreams = global._activeStreams || {};
   global._activeStreams[streamId] = abortController;
 
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${settings.openRouterKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        stream: true,
-      }),
-      signal: abortController.signal,
-    });
+  let retryCount = 0;
+  const maxRetries = 5;
+  const baseDelay = 1000; // 1 second
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
+  while (retryCount <= maxRetries) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${settings.openRouterKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: true,
+        }),
+        signal: abortController.signal,
+      });
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('data: ')) continue;
-        const dataStr = trimmed.slice(6);
-        if (dataStr === '[DONE]') continue;
-        try {
-          const json = JSON.parse(dataStr);
-          const content = json.choices?.[0]?.delta?.content;
-          if (content) {
-            event.reply('orpac-stream-data', { id: streamId, chunk: content });
-          }
-        } catch (e) { /* skip broken chunks */ }
+      // Handle 429 with retry
+      if (response.status === 429 && retryCount < maxRetries) {
+        const retryAfter = response.headers.get('Retry-After');
+        const delay = retryAfter ? parseInt(retryAfter) * 1000 : baseDelay * Math.pow(2, retryCount);
+        console.log(`Rate limited. Retry ${retryCount + 1}/${maxRetries} after ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        retryCount++;
+        continue;
       }
-    }
-    event.reply('orpac-stream-end', { id: streamId });
-  } catch (err) {
-    if (err.name === 'AbortError') {
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      // Successful response – stream as before
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          const dataStr = trimmed.slice(6);
+          if (dataStr === '[DONE]') continue;
+          try {
+            const json = JSON.parse(dataStr);
+            const content = json.choices?.[0]?.delta?.content;
+            if (content) {
+              event.reply('orpac-stream-data', { id: streamId, chunk: content });
+            }
+          } catch (e) { /* skip */ }
+        }
+      }
       event.reply('orpac-stream-end', { id: streamId });
-    } else {
-      event.reply('orpac-stream-error', { id: streamId, error: err.message });
+      return; // success
+
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        event.reply('orpac-stream-end', { id: streamId });
+        return;
+      }
+      // If we've exhausted retries or got a non-429 error, fail
+      if (retryCount >= maxRetries || (err.message && !err.message.includes('429'))) {
+        event.reply('orpac-stream-error', { id: streamId, error: err.message });
+        return;
+      }
+      // Otherwise, treat as retryable (unlikely, but safe)
+      retryCount++;
     }
-  } finally {
-    delete global._activeStreams[streamId];
   }
+
+  // Final fallback error
+  event.reply('orpac-stream-error', { id: streamId, error: 'Max retries exceeded' });
+  delete global._activeStreams[streamId];
 });
 
 
@@ -603,16 +634,40 @@ ipcMain.on('orpac-apply-diff', async (event, { projectBase, relativePath, diffTe
 
     // For new files, extract + lines directly (avoids hunk count mismatch issues)
     const isNewFile = !original && diffText.includes('-0,0');
-    let patched;
-    if (isNewFile) {
-      patched = diffText.split('\n')
-        .filter(l => l.startsWith('+'))
-        .map(l => l.slice(1))
-        .join('\n');
-    } else {
-      await fs.writeFile(absPath + '.bak', original, 'utf8');
-      patched = applyUnifiedDiff(original, diffText);
+	
+let patched;
+if (!original && (diffText.includes('@@ -0,0') || diffText.includes('-0,0'))) {
+  // Extract everything after the hunk header (@@ ... @@)
+  const lines = diffText.split('\n');
+  let startLine = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim().startsWith('@@')) {
+      startLine = i + 1;
+      break;
     }
+  }
+  // Take all lines after the hunk header, ignore the closing ```
+  let contentLines = lines.slice(startLine).filter(l => !l.trim().startsWith('```'));
+  // Clean trailing empty lines
+  while (contentLines.length && contentLines[contentLines.length-1].trim() === '') {
+    contentLines.pop();
+  }
+  // If lines start with '+', strip them; otherwise use as‑is
+  if (contentLines.length && contentLines[0].startsWith('+')) {
+    patched = contentLines.map(l => l.startsWith('+') ? l.slice(1) : l).join('\n');
+  } else {
+    patched = contentLines.join('\n');
+  }
+  // Fallback: capture raw code block content
+  if (!patched.trim()) {
+    const match = diffText.match(/```(?:diff?:[^\n]*)?\n([\s\S]*?)```/);
+    if (match) patched = match[1];
+  }
+} else {
+  // existing file handling (your existing diff logic)
+  await fs.writeFile(absPath + '.bak', original, 'utf8');
+  patched = applyUnifiedDiff(original, diffText);
+}
 
     await fs.mkdir(path.dirname(absPath), { recursive: true });
     await fs.writeFile(absPath, patched, 'utf8');
@@ -628,33 +683,54 @@ ipcMain.on('orpac-apply-diff', async (event, { projectBase, relativePath, diffTe
 
 // Minimal unified diff applier (handles context, deletions, additions)
 function applyUnifiedDiff(original, diff) {
-  const diffLines = diff.split('\n');
-  const removed = [], added = [];
+  const originalLines = original.split(/\r?\n/);
+  const diffLines = diff.split(/\r?\n/);
+  let result = [...originalLines];
+  let i = 0;
 
-  for (const line of diffLines) {
-    if (line.startsWith('-') && !line.startsWith('---')) removed.push(line.slice(1));
-    else if (line.startsWith('+') && !line.startsWith('+++')) added.push(line.slice(1));
-  }
+  while (i < diffLines.length) {
+    const line = diffLines[i];
+    if (line.startsWith('@@')) {
+      // Parse hunk header: @@ -oldStart,oldCount +newStart,newCount @@
+      const match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+      if (match) {
+        const oldStart = parseInt(match[1], 10) - 1; // zero‑based
+        const oldCount = match[2] ? parseInt(match[2], 10) : 1;
+        const newStart = parseInt(match[3], 10) - 1;
+        const newCount = match[4] ? parseInt(match[4], 10) : 1;
+        
+        // Collect hunk body lines
+        i++;
+        const hunkLines = [];
+        while (i < diffLines.length && !diffLines[i].startsWith('@@') && !diffLines[i].startsWith('diff --git')) {
+          hunkLines.push(diffLines[i]);
+          i++;
+        }
 
-  if (removed.length === 0) return original;
-
-  // Try exact block match
-  const searchStr = removed.join('\n');
-  const idx = original.indexOf(searchStr);
-  if (idx !== -1) {
-    return original.slice(0, idx) + added.join('\n') + original.slice(idx + searchStr.length);
-  }
-
-  // Fallback: replace line by line using trimmed comparison
-  const origLines = original.split('\n');
-  const result = [...origLines];
-  for (let r = 0; r < removed.length; r++) {
-    const trimTarget = removed[r].trim();
-    for (let o = 0; o < result.length; o++) {
-      if (result[o].trim() === trimTarget) {
-        result[o] = added[r] ?? '';
-        break; // replace first match only
+        // Apply this hunk
+        const before = result.slice(0, oldStart);
+        const after = result.slice(oldStart + oldCount);
+        
+        // Build the replacement lines from the hunk
+        const replacement = [];
+        for (const hline of hunkLines) {
+          if (hline.startsWith('+')) {
+            replacement.push(hline.slice(1));
+          } else if (hline.startsWith('-')) {
+            // removed line – skip
+            continue;
+          } else {
+            // context line – keep as is (should already exist in the original)
+            replacement.push(hline);
+          }
+        }
+        
+        result = [...before, ...replacement, ...after];
+      } else {
+        i++;
       }
+    } else {
+      i++;
     }
   }
   return result.join('\n');
